@@ -39,7 +39,9 @@ def parse_hci_packet(data, socket):
     response = None
 
     # Specific simulations
-    if opcode == 0x0C01:  # HCI_SetEventMask
+    if opcode == 0x080F: 
+        response = build_cmd_complete(opcode)
+    elif opcode == 0x0C01:  # HCI_SetEventMask
         # Expected parameters: 8 bytes
         if len(params) == 8:
             response = build_cmd_complete(opcode)
@@ -49,6 +51,8 @@ def parse_hci_packet(data, socket):
     elif opcode == 0x0C03:  # HCI_Reset
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C0C:  # HCI_Change_Local_Name
+        response = build_cmd_complete(opcode)
+    elif opcode == 0x0C1A:  # HCI_Change_Local_Name
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C13:  
         response = build_cmd_complete(opcode, b'\
