@@ -39,7 +39,34 @@ def parse_hci_packet(data, socket):
     response = None
 
     # Specific simulations
-    if opcode == 0x080F: 
+    if opcode == 0x0401: 
+        response = build_cmd_complete(opcode)
+        socket.sendall(response)
+    
+        hci_extended_inquiry_result = bytes([
+            0x04,       # HCI Packet Type: Event (H4 = 0x04)
+            0x2F,       # Event Code: Extended Inquiry Result
+            0xFF,       # Parameter Total Length (255 bytes)
+
+            0x01,                         # Num_Responses
+            0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1,  # BD_ADDR (LSB first)
+            0x01,                         # Page_Scan_Repetition_Mode
+            0x00,                         # Reserved
+            0x00,                         # Reserved
+            0x0C, 0x02, 0x5A,             # Class_of_Device
+            0x00, 0x00,                   # Clock_Offset (little endian)
+            0xD8,                         # RSSI (-40 decimale)
+
+            # Extended Inquiry Response Data (240 byte)
+            0x0B,                         # EIR Length
+            0x09,                         # EIR Type: Complete Local Name
+            0x4D, 0x79, 0x44, 0x65, 0x76, 0x69, 0x63, 0x65,  # 'MyDevice'
+
+            # Riempimento con zeri (240 - 11 = 229 zeri)
+        ] + [0x00] * (240 - 11))
+        socket.sendall(hci_extended_inquiry_result)
+        response = None
+    elif opcode == 0x080F: 
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C01:  # HCI_SetEventMask
         # Expected parameters: 8 bytes
