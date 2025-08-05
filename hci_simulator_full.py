@@ -38,82 +38,82 @@ def parse_hci_packet(data, socket):
 
     response = None
 
-    # Simulazioni specifiche
-    if opcode == 0x0C03:  # HCI_Reset
+    # Specific simulations
+    if opcode == 0x0C01:  # HCI_SetEventMask
+        # Expected parameters: 8 bytes
+        if len(params) == 8:
+            response = build_cmd_complete(opcode)
+        else:
+            print("Set_Event_Mask: invalid parameters")
+            response = build_cmd_complete(opcode, b'\x01')  # Status != SUCCESS
+    elif opcode == 0x0C03:  # HCI_Reset
         response = build_cmd_complete(opcode)
-    elif opcode == 0x1005:  # HCI_Read_Buffer_Size
-        response = build_cmd_complete(opcode, b'\xFD\x03\x78\x07\x00\x06\x00')
-    elif opcode == 0x1001:  # HCI_Read_Local_Name
-        response = build_cmd_complete(opcode, b'\x0b\x00\x83\x0b\x48\x00\x45\x75')
-    elif opcode == 0x1009:  # HCI_Read_BD_ADDR
-        response = build_cmd_complete(opcode, b'\xE0\x59\x2B\x2A\xF8\x54')
+    elif opcode == 0x0C0C:  # HCI_Change_Local_Name
+        response = build_cmd_complete(opcode)
+    elif opcode == 0x0C17:  # HCI_Change_Connection_Packet_Type
+        response = build_cmd_complete(opcode, b'\x00\x20')
+    elif opcode == 0x0C18:  # HCI_Write_Default_Link_Policy_Settings
+        response = build_cmd_complete(opcode)
     elif opcode == 0x0C1A:  # HCI_Write_Simple_Pairing_Mode
         response = build_cmd_complete(opcode)
-    elif opcode == 0x1003:  # HCI_Read_Local_Features
-        response = build_cmd_complete(opcode, b'\xFF\xFE\x8F\xFE\xDB\xFF\x7B\x87')
-    elif opcode == 0x0C5A:  # HCI_Read_Default_Err_Data_Reporting
-        response = build_cmd_complete(opcode, b'\x00')
+    elif opcode == 0x0C1F:  # HCI_Write_Authentication_Enable
+        response = build_cmd_complete(opcode)
+    elif opcode == 0x0C24:  # HCI_Write_Class_of_Device
+        response = build_cmd_complete(opcode)
+    elif opcode == 0x0C33:  # HCI_Write_Page_Scan_Activity
+        response = build_cmd_complete(opcode)
     elif opcode == 0x0C44:  # HCI_Read_Inquiry_Mode
+        response = build_cmd_complete(opcode, b'\x00')
+    elif opcode == 0x0C45:  # HCI_Write_Event_Mask
+        response = build_cmd_complete(opcode)
+    elif opcode == 0x0C46:  # HCI_Write_Event_Mask_Page_2
+        response = build_cmd_complete(opcode)
+    elif opcode == 0x0C51:  # HCI_Write_Scan_Enable
+        response = build_cmd_complete(opcode)
+    elif opcode == 0x0C55:  # HCI_Write_Page_Timeout
+        response = build_cmd_complete(opcode)
+    elif opcode == 0x0C56:  # HCI_Write_Simple_Pairing_Mode
+        # Any value received, we respond with success
+        response = build_cmd_complete(opcode, b'')
+    elif opcode == 0x0C58:  # HCI_Read_Inquiry_Response_Transmit_Power_Level
+        # Example: returns +4 dBm
+        response = build_cmd_complete(opcode, b'\x04')
+    elif opcode == 0x0C5A:  # HCI_Read_Default_Err_Data_Reporting
         response = build_cmd_complete(opcode, b'\x00')
     elif opcode == 0x0C63:  # HCI_Set_Event_Mask_Page_2
         if len(params) == 8:
             response = build_cmd_complete(opcode)
         else:
-            print("Set_Event_Mask_Page_2: parametri non validi")
-            response = build_cmd_complete(opcode, b'\x01')  # Errore generico
+            print("Set_Event_Mask_Page_2: invalid parameters")
+            response = build_cmd_complete(opcode, b'\x01')  # Generic error
+    elif opcode == 0x1001:  # HCI_Read_Local_Name
+        response = build_cmd_complete(opcode, b'\x0b\x00\x83\x0b\x48\x00\x45\x75')
     elif opcode == 0x1002:  # HCI_Read_Local_Supported_Commands
         response = build_cmd_complete(opcode, b'\xFF'*64)
+    elif opcode == 0x1003:  # HCI_Read_Local_Features
+        response = build_cmd_complete(opcode, b'\xFF\xFE\x8F\xFE\xDB\xFF\x7B\x87')
     elif opcode == 0x1004:  # HCI_Read_Local_Extended_Features
         if FirstTime_1004 == True:
             FirstTime_1004 = False
             response = build_cmd_complete(opcode, b'\x01\x02\x00\x00\x00\x00\x00\x00\x00\x00')
         else:
-            response = build_cmd_complete(opcode, b'\x02\x02\x00\x00\x00\x00\x00\x00\x00\x00')    
-    elif opcode == 0x0C1F:  # HCI_Write_Authentication_Enable
-        response = build_cmd_complete(opcode)
-    elif opcode == 0x0C45:  # HCI_Write_Event_Mask
-        response = build_cmd_complete(opcode)
-    elif opcode == 0x0C55:  # HCI_Write_Page_Timeout
-        response = build_cmd_complete(opcode)
-    elif opcode == 0x0C46:  # HCI_Write_Event_Mask_Page_2
-        response = build_cmd_complete(opcode)
-    elif opcode == 0x0C24:  # HCI_Write_Class_of_Device
-        response = build_cmd_complete(opcode)
-    elif opcode == 0x0C17:  # HCI_Change_Connection_Packet_Type
-        response = build_cmd_complete(opcode, b'\x00\x20')
-    elif opcode == 0x0C0C:  # HCI_Change_Local_Name
-        response = build_cmd_complete(opcode)
+            response = build_cmd_complete(opcode, b'\x02\x02\x00\x00\x00\x00\x00\x00\x00\x00')
+    elif opcode == 0x1005:  # HCI_Read_Buffer_Size
+        response = build_cmd_complete(opcode, b'\xFD\x03\x78\x07\x00\x06\x00')
+    elif opcode == 0x1009:  # HCI_Read_BD_ADDR
+        response = build_cmd_complete(opcode, b'\xE0\x59\x2B\x2A\xF8\x54')
     elif opcode == 0xFC1D:  # Vendor Specific
         response = build_cmd_complete(opcode)
     elif opcode == 0xFC26:  # Vendor Specific
         response = build_cmd_complete(opcode, b'\x01')
-    elif opcode == 0xFC7A:  # Vendor Specific
+    elif opcode == 0xFC73:  # Vendor Specific
         response = build_cmd_complete(opcode)
     elif opcode == 0xFC79:  # Vendor Specific
         response = build_cmd_complete(opcode)
-    elif opcode == 0xFC73:  # Vendor Specific
+    elif opcode == 0xFC7A:  # Vendor Specific
         response = build_cmd_complete(opcode)
-    elif opcode == 0x0C51:  # HCI_Write_Scan_Enable
-        response = build_cmd_complete(opcode)
-    elif opcode == 0x0C33:  # HCI_Write_Page_Scan_Activity
-        response = build_cmd_complete(opcode)
-    elif opcode == 0x0C18:  # HCI_Write_Default_Link_Policy_Settings
-        response = build_cmd_complete(opcode)
-    elif opcode == 0x0C01:  # HCI_SetEventMask
-        # Parametri attesi: 8 byte
-        if len(params) == 8:
-            response = build_cmd_complete(opcode)
-        else:
-            print("Set_Event_Mask: parametri non validi")
-            response = build_cmd_complete(opcode, b'\x01')  # Status != SUCCESS
-    elif opcode == 0x0C58:  # HCI_Read_Inquiry_Response_Transmit_Power_Level
-        # Esempio: restituisce +4 dBm
-        response = build_cmd_complete(opcode, b'\x04')
-    elif opcode == 0x0C56:  # HCI_Write_Simple_Pairing_Mode
-        # Qualsiasi valore ricevuto, rispondiamo con successo
-        response = build_cmd_complete(opcode, b'')
     else:
-        print(f"HCI comando non gestito: opcode 0x{opcode:04X}")
+        print(f"HCI unsupported command: opcode 0x{opcode:04X}")
         #response = build_cmd_complete(opcode)
 
     if response:
