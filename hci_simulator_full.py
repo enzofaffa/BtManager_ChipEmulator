@@ -91,6 +91,8 @@ def parse_hci_packet(data, socket):
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C51:  # HCI_Write_Scan_Enable
         response = build_cmd_complete(opcode)
+    elif opcode == 0x0C52:  # HCI_Write_Scan_Enable
+        response = build_cmd_complete(opcode)
     elif opcode == 0x0C55:  # HCI_Write_Page_Timeout
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C56:  # HCI_Write_Simple_Pairing_Mode
