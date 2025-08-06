@@ -23,6 +23,16 @@ def build_cmd_complete(opcode, return_params=b''):
     param_total_length = (len(num_hci_command_packets) + len(opcode_bytes) + len(status) + len(return_params)).to_bytes(1, 'little')
     return packet_type + event_code + param_total_length + num_hci_command_packets + opcode_bytes + status + return_params
 
+def build_cmd_status(opcode):
+    packet_type = b'\x04'
+    event_code = b'\x0F'
+    param_total_length = b'\x04'
+    status = b'\x00'
+    num_hci_command_packets = b'\x01'
+    opcode_bytes = opcode.to_bytes(2, 'little')
+    return packet_type + event_code + param_total_length + status + num_hci_command_packets + opcode_bytes
+
+
 def parse_hci_packet(data, socket):
     # Dichiara che vuoi usare la variabile globale, non una locale
     global FirstTime_1004
@@ -40,31 +50,47 @@ def parse_hci_packet(data, socket):
 
     # Specific simulations
     if opcode == 0x0401: 
-        response = build_cmd_complete(opcode)
+        # First send the Command Status event
+        response = build_cmd_status(opcode)
         socket.sendall(response)
-    
+
+        # Extended Inquiry Response Data (240 bytes)
+        eir_name = b'\x09\x09\x4D\x79\x44\x65\x76\x69\x63\x65' # Len:9 Type:09 Name:'MyDevice'
+        eir_tx_power = b'\x02\x0A\x0C' # Len:2 Type:0A TX Power: 12 dBm
+        # Services: Remote Control Target|Audio Source|Remote Control|Audio Sink|HandsFree Audio Gateway|HandsFree
+        eir_services = b'\x0D\x03\x0C\x11\x0A\x11\x0E\x11\x0B\x11\x1F\x11\x1E\x11' # Len:13 Type:03 Services (16bit UUIDs) in little-endian
+
+        # Calculate padding and create the full EIR data block
+        eir_data = eir_name + eir_tx_power + eir_services
+        eir_padding_len = 240 - len(eir_data)
+        eir_padding = b'\x00' * eir_padding_len
+        
+        # Build the complete HCI Extended Inquiry Result packet
         hci_extended_inquiry_result = bytes([
             0x04,       # HCI Packet Type: Event (H4 = 0x04)
             0x2F,       # Event Code: Extended Inquiry Result
             0xFF,       # Parameter Total Length (255 bytes)
 
-            0x01,                         # Num_Responses
-            0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1,  # BD_ADDR (LSB first)
-            0x01,                         # Page_Scan_Repetition_Mode
-            0x00,                         # Reserved
-            0x00,                         # Reserved
-            0x0C, 0x02, 0x5A,             # Class_of_Device
-            0x00, 0x00,                   # Clock_Offset (little endian)
-            0xD8,                         # RSSI (-40 decimale)
-
-            # Extended Inquiry Response Data (240 byte)
-            0x0B,                         # EIR Length
-            0x09,                         # EIR Type: Complete Local Name
-            0x4D, 0x79, 0x44, 0x65, 0x76, 0x69, 0x63, 0x65,  # 'MyDevice'
-
-            # Riempimento con zeri (240 - 11 = 229 zeri)
-        ] + [0x00] * (240 - 11))
+            0x01,                   # Num_Responses
+            0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1, # BD_ADDR (LSB first)
+            0x01,                   # Page_Scan_Repetition_Mode
+            0x00,                   # Reserved
+            0x0C, 0x02, 0x5A,       # Class_of_Device
+            0x00, 0x00,             # Clock_Offset (little endian)
+            0xD8,                   # RSSI (-40 decimal)
+        ]) + eir_data + eir_padding
+        
         socket.sendall(hci_extended_inquiry_result)
+
+        # Generate and send the Inquiry Complete event
+        hci_inquiry_complete = bytes([
+            0x04,       # HCI Packet Type: Event (H4 = 0x04)
+            0x01,       # Event Code: Inquiry Complete
+            0x01,       # Parameter Total Length (1 byte)
+            0x00,       # Status: SUCCESS
+        ])
+        socket.sendall(hci_inquiry_complete)
+
         response = None
     elif opcode == 0x080F: 
         response = build_cmd_complete(opcode)
