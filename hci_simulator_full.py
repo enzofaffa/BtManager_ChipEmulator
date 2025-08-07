@@ -1,4 +1,3 @@
-
 #import serial
 import telnetlib
 import threading
@@ -6,6 +5,7 @@ import keyboard
 import socket
 
 FirstTime_1004 = True
+FirstTime_041C = True
 
 def print_hex(data):
     print(" ".join(f"{b:02x}" for b in data))
@@ -32,10 +32,9 @@ def build_cmd_status(opcode):
     opcode_bytes = opcode.to_bytes(2, 'little')
     return packet_type + event_code + param_total_length + status + num_hci_command_packets + opcode_bytes
 
-
 def parse_hci_packet(data, socket):
-    # Dichiara che vuoi usare la variabile globale, non una locale
     global FirstTime_1004
+    global FirstTime_041C
 
     if not data or data[0] != 0x01 or len(data) < 4:
         return
@@ -48,64 +47,124 @@ def parse_hci_packet(data, socket):
 
     response = None
 
-    # Specific simulations
-    if opcode == 0x0401: 
-        # First send the Command Status event
+    if opcode == 0x0401:  # HCI_Inquiry
         response = build_cmd_status(opcode)
         socket.sendall(response)
 
-        # Extended Inquiry Response Data (240 bytes)
-        eir_name = b'\x09\x09\x4D\x79\x44\x65\x76\x69\x63\x65' # Len:9 Type:09 Name:'MyDevice'
-        eir_tx_power = b'\x02\x0A\x0C' # Len:2 Type:0A TX Power: 12 dBm
-        # Services: Remote Control Target|Audio Source|Remote Control|Audio Sink|HandsFree Audio Gateway|HandsFree
-        eir_services = b'\x0D\x03\x0C\x11\x0A\x11\x0E\x11\x0B\x11\x1F\x11\x1E\x11' # Len:13 Type:03 Services (16bit UUIDs) in little-endian
+        eir_name = b'\x09\x09\x4D\x79\x44\x65\x76\x69\x63\x65'
+        eir_tx_power = b'\x02\x0A\x0C'
+        eir_services = b'\x0D\x03\x0C\x11\x0A\x11\x0E\x11\x0B\x11\x1F\x11\x1E\x11'
 
-        # Calculate padding and create the full EIR data block
         eir_data = eir_name + eir_tx_power + eir_services
         eir_padding_len = 240 - len(eir_data)
         eir_padding = b'\x00' * eir_padding_len
         
-        # Build the complete HCI Extended Inquiry Result packet
         hci_extended_inquiry_result = bytes([
-            0x04,       # HCI Packet Type: Event (H4 = 0x04)
-            0x2F,       # Event Code: Extended Inquiry Result
-            0xFF,       # Parameter Total Length (255 bytes)
-
-            0x01,                   # Num_Responses
-            0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1, # BD_ADDR (LSB first)
-            0x01,                   # Page_Scan_Repetition_Mode
-            0x00,                   # Reserved
-            0x0C, 0x02, 0x5A,       # Class_of_Device
-            0x00, 0x00,             # Clock_Offset (little endian)
-            0xD8,                   # RSSI (-40 decimal)
+            0x04, 0x2F, 0xFF, 0x01, 0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1, 0x01, 0x00, 0x0C, 0x02, 0x5A, 0x00, 0x00, 0xD8,
         ]) + eir_data + eir_padding
-        
         socket.sendall(hci_extended_inquiry_result)
 
-        # Generate and send the Inquiry Complete event
-        hci_inquiry_complete = bytes([
-            0x04,       # HCI Packet Type: Event (H4 = 0x04)
-            0x01,       # Event Code: Inquiry Complete
-            0x01,       # Parameter Total Length (1 byte)
-            0x00,       # Status: SUCCESS
-        ])
+        hci_inquiry_complete = bytes([0x04, 0x01, 0x01, 0x00])
         socket.sendall(hci_inquiry_complete)
-
         response = None
+    
+    elif opcode == 0x0405: # HCI_Create_Connection
+        socket.sendall(build_cmd_status(opcode))
+        
+        hci_connection_complete = bytes([
+            0x04, 0x03, 0x0B, 0x00, 0x01, 0x00, 0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1, 0x01, 0x00,
+        ])
+        socket.sendall(hci_connection_complete)
+        response = None
+    
+    elif opcode == 0x040C:  # HCC_LINK_KEY_REQ_NEG_REPL
+        response = build_cmd_complete(opcode, b'\xf6\xe5\xd4\xc3\xb2\xa1')
+        socket.sendall(response)
+        
+        hci_io_capability_req = bytes([0x04, 0x31, 0x06, 0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1])
+        socket.sendall(hci_io_capability_req)
+        response = None
+
+    elif opcode == 0x040F:  # HCC_CHNG_CONN_PACKET_TYPE
+        response = build_cmd_complete(opcode, b'\x01\x00') # Connection Handle 0x0001
+
+    elif opcode == 0x0411:  # HCC_AUTH_REQ
+        socket.sendall(build_cmd_status(opcode))
+
+        hci_link_key_req = bytes([0x04, 0x17, 0x07, 0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1, 0x01])
+        socket.sendall(hci_link_key_req)
+        
+        hci_num_completed_packets = bytes([0x04, 0x13, 0x05, 0x01, 0x01, 0x00, 0x01, 0x00])
+        socket.sendall(hci_num_completed_packets)
+        
+        response = None
+    
+    elif opcode == 0x0419:  # HCI_Remote_Name_Request
+        socket.sendall(build_cmd_status(opcode))
+        
+        remote_name_bytes = b'MyDevice'
+        padding = b'\x00' * (248 - len(remote_name_bytes))
+        hci_remote_name_req_complete = bytes([
+            0x04, 0x07, 0xFF, 0x00, 0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1,
+        ]) + remote_name_bytes + padding
+        socket.sendall(hci_remote_name_req_complete)
+        response = None
+    
+    elif opcode == 0x041B: # HCC_READ_REMOTE_FEATURES
+        socket.sendall(build_cmd_status(opcode))
+        
+        hci_read_remote_features_complete = bytes([
+            0x04, 0x0B, 0x0B, 0x00, 0x01, 0x00, 0xbf, 0xfe, 0xcf, 0xfe, 0xdb, 0xff, 0x7b, 0x87,
+        ])
+        socket.sendall(hci_read_remote_features_complete)
+        response = None
+    
+    elif opcode == 0x041C: # HCC_READ_REMOTE_EXT_FEATURES
+        socket.sendall(build_cmd_status(opcode))
+        
+        if FirstTime_041C == True:
+            FirstTime_041C = False
+            hci_read_remote_ext_features_complete = bytes([
+                0x04, 0x23, 0x0D, 0x00, 0x01, 0x00, 0x01, 0x02, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            ])
+        else:
+            hci_read_remote_ext_features_complete = bytes([
+                0x04, 0x23, 0x0D, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            ])
+
+        socket.sendall(hci_read_remote_ext_features_complete)
+        response = None
+    
+    elif opcode == 0x080D: # HCC_WRITE_LINK_POLICY_SETTINGS
+        response = build_cmd_complete(opcode, b'\x01\x00') # Connection Handle 0x0001
+    
+    elif opcode == 0x0C18:  # HCC_WRITE_DEFAULT_LINK_POLICY_SETTINGS
+        response = build_cmd_complete(opcode)
+    
+    elif opcode == 0x0C1C: # HCC_WRITE_PAGE_SCAN_ACTIVITY
+        response = build_cmd_complete(opcode)
+        
+    elif opcode == 0x0C1E: # HCC_WRITE_INQ_SCAN_ACTIVITY
+        response = build_cmd_complete(opcode)
+
+    elif opcode == 0x0C2D:  # HCI_Write_PIN_Type
+        response = build_cmd_complete(opcode)
+    elif opcode == 0x0C20:  # HCI_Write_Authentication_Enable
+        response = build_cmd_complete(opcode)
+    
     elif opcode == 0x080F: 
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C01:  # HCI_SetEventMask
-        # Expected parameters: 8 bytes
         if len(params) == 8:
             response = build_cmd_complete(opcode)
         else:
             print("Set_Event_Mask: invalid parameters")
-            response = build_cmd_complete(opcode, b'\x01')  # Status != SUCCESS
+            response = build_cmd_complete(opcode, b'\x01')
     elif opcode == 0x0C03:  # HCI_Reset
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C0C:  # HCI_Change_Local_Name
         response = build_cmd_complete(opcode)
-    elif opcode == 0x0C1A:  # HCI_Change_Local_Name
+    elif opcode == 0x0C1A:  # HCI_Write_Simple_Pairing_Mode
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C13:  
         response = build_cmd_complete(opcode, b'\
@@ -128,13 +187,7 @@ def parse_hci_packet(data, socket):
 ')  
     elif opcode == 0x0C17:  # HCI_Change_Connection_Packet_Type
         response = build_cmd_complete(opcode, b'\x00\x20')
-    elif opcode == 0x0C18:  # HCI_Write_Default_Link_Policy_Settings
-        response = build_cmd_complete(opcode)
     elif opcode == 0x0C1A:  # HCI_Write_Simple_Pairing_Mode
-        response = build_cmd_complete(opcode)
-    elif opcode == 0x0C1F:  # HCI_Write_Authentication_Enable
-        response = build_cmd_complete(opcode)
-    elif opcode == 0x0C20:  # HCI_Write_Authentication_Enable
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C24:  # HCI_Write_Class_of_Device
         response = build_cmd_complete(opcode)
@@ -153,10 +206,8 @@ def parse_hci_packet(data, socket):
     elif opcode == 0x0C55:  # HCI_Write_Page_Timeout
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C56:  # HCI_Write_Simple_Pairing_Mode
-        # Any value received, we respond with success
         response = build_cmd_complete(opcode, b'')
     elif opcode == 0x0C58:  # HCI_Read_Inquiry_Response_Transmit_Power_Level
-        # Example: returns +4 dBm
         response = build_cmd_complete(opcode, b'\x04')
     elif opcode == 0x0C5A:  # HCI_Read_Default_Err_Data_Reporting
         response = build_cmd_complete(opcode, b'\x00')
@@ -165,7 +216,7 @@ def parse_hci_packet(data, socket):
             response = build_cmd_complete(opcode)
         else:
             print("Set_Event_Mask_Page_2: invalid parameters")
-            response = build_cmd_complete(opcode, b'\x01')  # Generic error
+            response = build_cmd_complete(opcode, b'\x01')
     elif opcode == 0x1001:  # HCI_Read_Local_Name
         response = build_cmd_complete(opcode, b'\x0b\x00\x83\x0b\x48\x00\x45\x75')
     elif opcode == 0x1002:  # HCI_Read_Local_Supported_Commands
@@ -208,7 +259,6 @@ def parse_hci_packet(data, socket):
     if response:
         print(f"Invio response ({len(response)} byte): {response.hex()}")
         socket.sendall(response)
-        #socket.sendall("ciao".encode())
 
 def connect_and_read(ip, port):
     buffer = bytearray()
@@ -223,14 +273,7 @@ def connect_and_read(ip, port):
             if not data:
                 print("Connessione chiusa dal server.")
                 break
-            #print(f"Letti {len(data)} byte: {data.hex()} | ASCII: {data.decode(errors='replace')}")
-
-            #continue
-
-            #if len(data):
-            #print(data.decode(errors='ignore'), end='')
-            #print(f"Letti {len(data)} byte: {data.hex()}")
-            buffer.extend(data)  # <-- aggiungi i dati ricevuti al buffer
+            buffer.extend(data)
 
             if len(buffer) == 1:
                 if buffer[0] == 0x01:
@@ -259,5 +302,4 @@ def connect_and_read(ip, port):
                 expected_len = 0
 
 if __name__ == "__main__":
-    #main2()
-    connect_and_read("10.0.9.138", 12345)
+    connect_and_read("10.0.8.166", 12345)
