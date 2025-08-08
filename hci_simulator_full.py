@@ -98,6 +98,37 @@ def parse_hci_packet(data, socket):
         socket.sendall(hci_num_completed_packets)
         
         response = None
+
+    elif opcode == 0x042B: # HCC_IO_CAPABILITY_RESPONSE
+        response = build_cmd_complete(opcode, b'\xf6\xe5\xd4\xc3\xb2\xa1')
+        socket.sendall(response)
+        
+        hci_num_completed_packets = bytes([0x04, 0x13, 0x05, 0x01, 0x01, 0x00, 0x01, 0x00])
+        socket.sendall(hci_num_completed_packets)
+        
+        hci_io_capability_response = bytes([0x04, 0x32, 0x09, 0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1, 0x01, 0x00, 0x01])
+        socket.sendall(hci_io_capability_response)
+
+        hci_user_confirmation_req = bytes([0x04, 0x33, 0x0A, 0xf6, 0xe5, 0xd4, 0xc3, 0xb2, 0xa1, 0x54, 0x42, 0x02, 0x00])
+        socket.sendall(hci_user_confirmation_req)
+
+
+        response = None
+
+    elif opcode == 0x042C: # HCC_USER_CONFIRM_REQ_REPL
+        response = build_cmd_complete(opcode, b'\xf6\xe5\xd4\xc3\xb2\xa1')
+        socket.sendall(response)
+        
+        hci_simple_pairing_complete = bytes([0x04, 0x36, 0x07, 0x00, 0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1])
+        socket.sendall(hci_simple_pairing_complete)
+
+        hci_link_key_notify = bytes([0x04, 0x18, 0x17, 0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1, 0x38, 0x7B, 0x70, 0x8D, 0xB9, 0xAF, 0xDA, 0x29, 0x9E, 0xE9, 0x87, 0x17, 0x71, 0x97, 0xBB, 0xE8, 0x05])
+        socket.sendall(hci_link_key_notify)
+        
+        hci_auth_complete = bytes([0x04, 0x06, 0x03, 0x00, 0x01, 0x00])
+        socket.sendall(hci_auth_complete)
+
+        response = None
     
     elif opcode == 0x0419:  # HCI_Remote_Name_Request
         socket.sendall(build_cmd_status(opcode))
@@ -302,4 +333,4 @@ def connect_and_read(ip, port):
                 expected_len = 0
 
 if __name__ == "__main__":
-    connect_and_read("10.0.8.166", 12345)
+    connect_and_read("192.168.1.111", 12345)
