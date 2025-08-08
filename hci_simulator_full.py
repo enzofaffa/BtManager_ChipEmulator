@@ -76,7 +76,37 @@ def parse_hci_packet(data, socket):
         ])
         socket.sendall(hci_connection_complete)
         response = None
+
+    elif opcode == 0x0406: # HCC_DISCONNECT
+        response = build_cmd_status(opcode)
+        socket.sendall(response)
+        
+        hci_num_completed_packets_1 = bytes([0x04, 0x13, 0x05, 0x01, 0x01, 0x00, 0x01, 0x00])
+        socket.sendall(hci_num_completed_packets_1)
+        
+        hci_num_completed_packets_2 = bytes([0x04, 0x13, 0x05, 0x01, 0x01, 0x00, 0x01, 0x00])
+        socket.sendall(hci_num_completed_packets_2)
+        
+        hci_num_completed_packets_3 = bytes([0x04, 0x13, 0x05, 0x01, 0x01, 0x00, 0x02, 0x00])
+        socket.sendall(hci_num_completed_packets_3)
+
+        hci_disconnect_complete = bytes([0x04, 0x05, 0x04, 0x00, 0x01, 0x00, 0x16])
+        socket.sendall(hci_disconnect_complete)
+
+        response = None
     
+    elif opcode == 0x040B: # HCC_LINK_KEY_REQ_REPL
+        hci_num_completed_packets_1 = bytes([0x04, 0x13, 0x05, 0x01, 0x01, 0x00, 0x01, 0x00])
+        socket.sendall(hci_num_completed_packets_1)
+        
+        response = build_cmd_complete(opcode, b'\x41\x3c\x91\x3d\xe1\x38')
+        
+        hci_num_completed_packets_2 = bytes([0x04, 0x13, 0x05, 0x01, 0x01, 0x00, 0x01, 0x00])
+        socket.sendall(hci_num_completed_packets_2)
+        
+        hci_auth_complete = bytes([0x04, 0x06, 0x03, 0x00, 0x01, 0x00])
+        socket.sendall(hci_auth_complete)
+
     elif opcode == 0x040C:  # HCC_LINK_KEY_REQ_NEG_REPL
         response = build_cmd_complete(opcode, b'\xf6\xe5\xd4\xc3\xb2\xa1')
         socket.sendall(response)
