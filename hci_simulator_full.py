@@ -92,7 +92,6 @@ def parse_hci_packet(data, socket):
 
         hci_disconnect_complete = bytes([0x04, 0x05, 0x04, 0x00, 0x01, 0x00, 0x16])
         socket.sendall(hci_disconnect_complete)
-
         response = None
     
     elif opcode == 0x040B: # HCC_LINK_KEY_REQ_REPL
@@ -116,12 +115,24 @@ def parse_hci_packet(data, socket):
         response = None
 
     elif opcode == 0x040F:  # HCC_CHNG_CONN_PACKET_TYPE
-        response = build_cmd_complete(opcode, b'\x01\x00') # Connection Handle 0x0001
-
+        # Send HCE_COMMAND_STATUS
+        hci_command_status = build_cmd_status(opcode)
+        socket.sendall(hci_command_status)
+        
+        # Re-sending HCE_CONN_PACKET_TYPE_CHNG
+        hci_conn_packet_type_chng = bytes([0x04, 0x1D, 0x05, 0x00, 0x01, 0x00, 0x18, 0xcc])
+        socket.sendall(hci_conn_packet_type_chng)
+        
+        # Send HCE_MAX_SLOTS_CHNG
+        hci_max_slots_chng = bytes([0x04, 0x1B, 0x03, 0x01, 0x00, 0x05])
+        socket.sendall(hci_max_slots_chng)
+        
+        response = None
+    
     elif opcode == 0x0411:  # HCC_AUTH_REQ
         socket.sendall(build_cmd_status(opcode))
 
-        hci_link_key_req = bytes([0x04, 0x17, 0x07, 0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1, 0x01])
+        hci_link_key_req = bytes([0x04, 0x17, 0x06, 0xF6, 0xE5, 0xD4, 0xC3, 0xB2, 0xA1])
         socket.sendall(hci_link_key_req)
         
         hci_num_completed_packets = bytes([0x04, 0x13, 0x05, 0x01, 0x01, 0x00, 0x01, 0x00])
@@ -141,7 +152,6 @@ def parse_hci_packet(data, socket):
 
         hci_user_confirmation_req = bytes([0x04, 0x33, 0x0A, 0xf6, 0xe5, 0xd4, 0xc3, 0xb2, 0xa1, 0x54, 0x42, 0x02, 0x00])
         socket.sendall(hci_user_confirmation_req)
-
 
         response = None
 
@@ -204,10 +214,10 @@ def parse_hci_packet(data, socket):
     
     elif opcode == 0x0C1C: # HCC_WRITE_PAGE_SCAN_ACTIVITY
         response = build_cmd_complete(opcode)
-        
+
     elif opcode == 0x0C1E: # HCC_WRITE_INQ_SCAN_ACTIVITY
         response = build_cmd_complete(opcode)
-
+    
     elif opcode == 0x0C2D:  # HCI_Write_PIN_Type
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C20:  # HCI_Write_Authentication_Enable
@@ -252,7 +262,7 @@ def parse_hci_packet(data, socket):
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C24:  # HCI_Write_Class_of_Device
         response = build_cmd_complete(opcode)
-    elif opcode == 0x0C33:  # HCI_Write_Page_Scan_Activity
+    elif opcode == 0x0C33:  # HCC_HOST_BUFFER_SIZE
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C44:  # HCI_Read_Inquiry_Mode
         response = build_cmd_complete(opcode, b'\x00')
@@ -262,7 +272,7 @@ def parse_hci_packet(data, socket):
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C51:  # HCI_Write_Scan_Enable
         response = build_cmd_complete(opcode)
-    elif opcode == 0x0C52:  # HCI_Write_Scan_Enable
+    elif opcode == 0x0C52:  # HCI_Write_Extended_Inquiry_Response
         response = build_cmd_complete(opcode)
     elif opcode == 0x0C55:  # HCI_Write_Page_Timeout
         response = build_cmd_complete(opcode)
@@ -316,7 +326,7 @@ def parse_hci_packet(data, socket):
     else:
         print(f"HCI unsupported command: opcode 0x{opcode:04X}")
         #response = build_cmd_complete(opcode)
-
+    
     if response:
         print(f"Invio response ({len(response)} byte): {response.hex()}")
         socket.sendall(response)
@@ -325,7 +335,6 @@ def connect_and_read(ip, port):
     buffer = bytearray()
     buffer.clear()
     expected_len = 0
-
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((ip, port))
         print(f"Connesso a {ip}:{port}")
@@ -363,4 +372,4 @@ def connect_and_read(ip, port):
                 expected_len = 0
 
 if __name__ == "__main__":
-    connect_and_read("192.168.1.111", 12345)
+    connect_and_read("10.0.8.166", 12345)
